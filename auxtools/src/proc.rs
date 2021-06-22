@@ -164,6 +164,8 @@ fn strip_path(p: String) -> String {
 	p.replace("/proc/", "/").replace("/verb/", "/")
 }
 
+extern crate log;
+
 pub fn populate_procs() {
 	let mut i: u32 = 0;
 	loop {
@@ -193,6 +195,14 @@ pub fn populate_procs() {
 
 		i += 1;
 	}
+}
+
+pub fn dump_procs() {
+	PROCS_BY_NAME.with(|h|
+	   h.borrow().iter().for_each(|r|
+		   log::info!("Proc: {:?} {:?}", r.key(), r.value())
+	   )
+	)
 }
 
 pub fn clear_procs() {

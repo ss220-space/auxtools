@@ -8,10 +8,10 @@
 mod byond_ffi;
 mod bytecode_manager;
 pub mod debug;
-mod hooks;
+pub mod hooks;
 mod init;
 mod list;
-mod proc;
+pub mod proc;
 pub mod raw_types;
 mod runtime;
 pub mod sigscan;

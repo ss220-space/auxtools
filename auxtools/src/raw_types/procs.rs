@@ -3,10 +3,11 @@ use super::strings;
 use super::values;
 
 #[repr(C)]
-#[derive(Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
 pub struct ProcId(pub u32);
 
 #[repr(C)]
+#[derive(Debug)]
 pub struct ProcEntry {
 	pub path: strings::StringId,
 	pub name: strings::StringId,
@@ -37,23 +38,28 @@ pub struct ProcInstance {
 }
 
 #[repr(C)]
+#[derive(Debug)]
 pub struct ExecutionContext {
-	pub proc_instance: *mut ProcInstance,
-	pub parent_context: *mut ExecutionContext,
-	pub filename: strings::StringId,
-	pub line: u32,
-	pub bytecode: *mut u32,
-	pub bytecode_offset: u16,
+	pub proc_instance: *mut ProcInstance, // 0x0
+	pub parent_context: *mut ExecutionContext, // 0x4
+	pub filename: strings::StringId, // 0x8
+	pub line: u32, // 0xC
+	pub bytecode: *mut u32, // 0x10
+	pub bytecode_offset: u16, // 0x12
+	// padding u16 // 0x28
 	test_flag: u8,
+	// padding u8 x 3 // 0x30
 	unk_0: u8,
+	// padding u8 x 3 // 0x38
 	cached_datum: values::Value,
-	unk_1: [u8; 0x10],
-	pub dot: values::Value,
-	pub locals: *mut values::Value,
-	stack: *mut values::Value,
-	pub locals_count: u16,
-	stack_size: u16,
-	unk_2: u32,
+	// padding 3 // 0x40
+	unk_1: [u8; 0x10], // 0x32
+	pub dot: values::Value, // 0x
+	pub locals: *mut values::Value, // 0x30
+	pub stack: *mut values::Value, // 0x38
+	pub locals_count: u16, // 0x40
+	pub stack_size: u16, // 0x42
+	unk_2: u32, // 0x44
 	current_iterator: *mut values::Value,
 	iterator_allocated: u32,
 	iterator_length: u32,

@@ -92,8 +92,12 @@ pub fn init() -> Result<(), String> {
 
 pub type ProcHook = fn(&Value, &Value, &mut Vec<Value>) -> DMResult;
 
+pub type ByondProcFunc = unsafe extern "C" fn(*mut raw_types::values::Value, raw_types::values::Value, *mut raw_types::values::Value) -> ();
+
 thread_local! {
 	static PROC_HOOKS: RefCell<DashMap<raw_types::procs::ProcId, ProcHook>> = RefCell::new(DashMap::new());
+	static CALL_COUNT: RefCell<DashMap<raw_types::procs::ProcId, u32>> = RefCell::new(DashMap::new());
+	static CHAD_HOOKS: RefCell<DashMap<raw_types::procs::ProcId, ByondProcFunc>> = RefCell::new(DashMap::new());
 }
 
 fn hook_by_id(id: raw_types::procs::ProcId, hook: ProcHook) -> Result<(), HookFailure> {
@@ -121,6 +125,16 @@ pub fn hook<S: Into<String>>(name: S, hook: ProcHook) -> Result<(), HookFailure>
 	}
 }
 
+pub fn chad_hook<S: Into<String>>(name: S, hook: ByondProcFunc) -> Result<(), HookFailure> {
+	match super::proc::get_proc(name) {
+		Some(p) => {
+			CHAD_HOOKS.with(|h| h.borrow_mut().insert(p.id, hook));
+			Ok(())
+		},
+		None => Err(HookFailure::ProcNotFound),
+	}
+}
+
 impl Proc {
 	pub fn hook(&self, func: ProcHook) -> Result<(), HookFailure> {
 		hook_by_id(self.id, func)
@@ -136,6 +150,23 @@ extern "C" fn on_runtime(error: *const c_char) {
 	}
 }
 
+pub struct CallCount {
+	pub proc: Proc,
+	pub count: u32
+}
+
+pub fn call_counts() -> Option<Vec<CallCount>> {
+	return CALL_COUNT.with(|h| {
+		return Some(h.borrow().iter().filter_map(|e|
+			if let Some(proc) = Proc::from_id(*e.key()) {
+				Some(CallCount { proc: proc, count: *e.value() })
+			} else {
+				None
+			}
+		).collect::<Vec<_>>());
+	})
+}
+
 #[no_mangle]
 extern "C" fn call_proc_by_id_hook(
 	ret: *mut raw_types::values::Value,
@@ -149,6 +180,24 @@ extern "C" fn call_proc_by_id_hook(
 	_unknown2: u32,
 	_unknown3: u32,
 ) -> u8 {
+
+	match CHAD_HOOKS.with(|h|match h.borrow().get(&proc_id) {
+		Some(hook) => {
+			unsafe { hook(ret, src_raw, args_ptr) };
+			Some(1)
+		}
+		None => None
+	}) {
+		Some(_) => {
+			return 1;
+		}
+		_ => {}
+	}
+
+	CALL_COUNT.with(|h| {
+		*h.borrow_mut().entry(proc_id).or_default().value_mut() += 1
+	});
+
 	match PROC_HOOKS.with(|h| match h.borrow().get(&proc_id) {
 		Some(hook) => {
 			let src;
