@@ -3,6 +3,7 @@ use super::strings;
 use super::values;
 use crate::raw_types::values::{Value, ValueData};
 use crate::raw_types::strings::StringId;
+use std::ffi::c_void;
 
 #[repr(C)]
 #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
@@ -36,12 +37,11 @@ pub struct ProcInstance {
 	pub proc: ProcId,
 	pub flags: u8,
 	pub mega_hack: u16,
-	pub unk_0: u8,
 	pub usr: values::Value,
 	pub src: values::Value,
 	pub context: *mut ExecutionContext,
 	pub arglist_idx: values::ValueData,
-	pub callback: ::std::option::Option<unsafe extern "C" fn(arg1: values::Value, arg2: u32)>,
+	pub callback: *const c_void,
 	pub callback_value: u32,
 	pub args_count: u32,
 	pub args: *mut values::Value,
