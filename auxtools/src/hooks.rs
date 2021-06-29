@@ -92,7 +92,7 @@ pub fn init() -> Result<(), String> {
 
 pub type ProcHook = fn(&Value, &Value, &mut Vec<Value>) -> DMResult;
 
-pub type ByondProcFunc = unsafe extern "C" fn(*mut raw_types::values::Value, raw_types::values::Value, *mut raw_types::values::Value) -> ();
+pub type ByondProcFunc = unsafe extern "C" fn(out: *mut raw_types::values::Value, usr: raw_types::values::Value, src: raw_types::values::Value, args: *mut raw_types::values::Value) -> ();
 
 thread_local! {
 	static PROC_HOOKS: RefCell<DashMap<raw_types::procs::ProcId, ProcHook>> = RefCell::new(DashMap::new());
@@ -183,7 +183,7 @@ extern "C" fn call_proc_by_id_hook(
 
 	match CHAD_HOOKS.with(|h|match h.borrow().get(&proc_id) {
 		Some(hook) => {
-			unsafe { hook(ret, src_raw, args_ptr) };
+			unsafe { hook(ret, src_raw, usr_raw, args_ptr) };
 			Some(1)
 		}
 		None => None
