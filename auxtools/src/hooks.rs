@@ -97,7 +97,6 @@ pub type ByondProcFunc = unsafe extern "C" fn(out: *mut raw_types::values::Value
 thread_local! {
 	static PROC_HOOKS: RefCell<DashMap<raw_types::procs::ProcId, ProcHook>> = RefCell::new(DashMap::new());
 	static CALL_COUNT: RefCell<DashMap<raw_types::procs::ProcId, u32>> = RefCell::new(DashMap::new());
-	static CHAD_HOOKS: RefCell<DashMap<raw_types::procs::ProcId, ByondProcFunc>> = RefCell::new(DashMap::new());
 }
 
 fn hook_by_id(id: raw_types::procs::ProcId, hook: ProcHook) -> Result<(), HookFailure> {
@@ -128,10 +127,21 @@ pub fn hook<S: Into<String>>(name: S, hook: ProcHook) -> Result<(), HookFailure>
 pub fn chad_hook<S: Into<String>>(name: S, hook: ByondProcFunc) -> Result<(), HookFailure> {
 	match super::proc::get_proc(name) {
 		Some(p) => {
-			CHAD_HOOKS.with(|h| h.borrow_mut().insert(p.id, hook));
+			chad_hook_by_id(p.id, hook);
 			Ok(())
 		},
 		None => Err(HookFailure::ProcNotFound),
+	}
+}
+
+pub fn chad_hook_by_id(id: raw_types::procs::ProcId, hook: ByondProcFunc) {
+	unsafe {
+		let mut hooks = CHAD_HOOKS.borrow_mut();
+		let idx = id.0 as usize;
+		if idx >= hooks.len() {
+			hooks.resize((idx + 1) as usize, None);
+		}
+		hooks[idx] = Some(hook);
 	}
 }
 
@@ -167,6 +177,11 @@ pub fn call_counts() -> Option<Vec<CallCount>> {
 	})
 }
 
+pub static mut ENABLE_CALL_COUNTS: bool = false;
+pub static mut ENABLE_CHAD_HOOKS: bool = true;
+pub static mut CHAD_HOOKS: RefCell<Vec<Option<ByondProcFunc>>> = RefCell::new(Vec::new());
+
+
 #[no_mangle]
 extern "C" fn call_proc_by_id_hook(
 	ret: *mut raw_types::values::Value,
@@ -181,22 +196,23 @@ extern "C" fn call_proc_by_id_hook(
 	_unknown3: u32,
 ) -> u8 {
 
-	match CHAD_HOOKS.with(|h|match h.borrow().get(&proc_id) {
-		Some(hook) => {
-			unsafe { hook(ret, src_raw, usr_raw, args_ptr) };
-			Some(1)
+	if unsafe { ENABLE_CHAD_HOOKS } {
+		let hooks = unsafe {
+			CHAD_HOOKS.borrow()
+		};
+		if let Some(hook) = hooks.get(proc_id.0 as usize) {
+			if let Some(hook) = hook {
+				unsafe { hook(ret, src_raw, usr_raw, args_ptr) };
+				return 1;
+			}
 		}
-		None => None
-	}) {
-		Some(_) => {
-			return 1;
-		}
-		_ => {}
 	}
 
-	CALL_COUNT.with(|h| {
-		*h.borrow_mut().entry(proc_id).or_default().value_mut() += 1
-	});
+	if unsafe { ENABLE_CALL_COUNTS } {
+		CALL_COUNT.with(|h| {
+			*h.borrow_mut().entry(proc_id).or_default().value_mut() += 1
+		});
+	}
 
 	match PROC_HOOKS.with(|h| match h.borrow().get(&proc_id) {
 		Some(hook) => {
