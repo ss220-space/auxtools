@@ -31,6 +31,9 @@ inventory::collect!(RuntimeHook);
 extern "C" {
 	static mut call_proc_by_id_original: *const c_void;
 
+	#[cfg(unix)]
+	static mut call_proc_by_id_original2: *const c_void;
+
 	static mut runtime_original: *const c_void;
 	fn runtime_hook(error: *const c_char);
 
@@ -45,6 +48,20 @@ extern "C" {
 		unk_1: u32,
 		unk_2: u32,
 	) -> raw_types::values::Value;
+
+	#[cfg(unix)]
+	fn call_proc_by_id_hook_trampoline2(
+		out: *mut raw_types::values::Value,
+		usr: raw_types::values::Value,
+		proc_type: u32,
+		proc_id: raw_types::procs::ProcId,
+		unk_0: u32,
+		src: raw_types::values::Value,
+		args: *mut raw_types::values::Value,
+		args_count_l: usize,
+		unk_1: u32,
+		unk_2: u32,
+	) -> *mut raw_types::values::Value;
 }
 
 pub enum HookFailure {
@@ -76,16 +93,30 @@ pub fn init() -> Result<(), String> {
 		runtime_hook.enable().unwrap();
 		runtime_original = std::mem::transmute(runtime_hook.trampoline());
 		std::mem::forget(runtime_hook);
+		{
+			let call_hook = RawDetour::new(
+				raw_types::funcs::call_proc_by_id_byond as *const (),
+				call_proc_by_id_hook_trampoline as *const (),
+			)
+				.unwrap();
 
-		let call_hook = RawDetour::new(
-			raw_types::funcs::call_proc_by_id_byond as *const (),
-			call_proc_by_id_hook_trampoline as *const (),
-		)
-		.unwrap();
+			call_hook.enable().unwrap();
+			call_proc_by_id_original = std::mem::transmute(call_hook.trampoline());
+			std::mem::forget(call_hook);
+		}
 
-		call_hook.enable().unwrap();
-		call_proc_by_id_original = std::mem::transmute(call_hook.trampoline());
-		std::mem::forget(call_hook);
+		#[cfg(unix)]
+		{
+			let call_hook = RawDetour::new(
+				raw_types::funcs::call_proc_by_id2_byond as *const (),
+				call_proc_by_id_hook_trampoline2 as *const (),
+			)
+				.unwrap();
+
+			call_hook.enable().unwrap();
+			call_proc_by_id_original2 = std::mem::transmute(call_hook.trampoline());
+			std::mem::forget(call_hook);
+		}
 	}
 	Ok(())
 }
