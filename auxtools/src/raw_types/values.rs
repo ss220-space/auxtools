@@ -50,6 +50,8 @@ pub enum ValueTag {
 
 	Number = 0x2A,
 	Appearance = 0x3A,
+
+	ProcId = 0x26
 }
 
 impl fmt::Display for Value {
