@@ -122,9 +122,22 @@ pub fn init() -> Result<(), String> {
 }
 
 pub type ProcHook = fn(&Value, &Value, &mut Vec<Value>) -> DMResult;
+pub type CallProcByIdInterceptor = fn(
+	ret: *mut raw_types::values::Value,
+	usr_raw: raw_types::values::Value,
+	_proc_type: u32,
+	proc_id: raw_types::procs::ProcId,
+	_unknown1: u32,
+	src_raw: raw_types::values::Value,
+	args_ptr: *mut raw_types::values::Value,
+	num_args: usize,
+	_unknown2: u32,
+	_unknown3: u32,
+) -> u8;
 
 thread_local! {
 	static PROC_HOOKS: RefCell<DashMap<raw_types::procs::ProcId, ProcHook>> = RefCell::new(DashMap::new());
+	static INTERCEPTOR: RefCell<Option<CallProcByIdInterceptor>> = RefCell::new(Option::None);
 }
 
 fn hook_by_id(id: raw_types::procs::ProcId, hook: ProcHook) -> Result<(), HookFailure> {
@@ -143,6 +156,7 @@ fn hook_by_id(id: raw_types::procs::ProcId, hook: ProcHook) -> Result<(), HookFa
 
 pub fn clear_hooks() {
 	PROC_HOOKS.with(|h| h.borrow().clear());
+	INTERCEPTOR.with(|h| h.replace(Option::None));
 }
 
 pub fn hook<S: Into<String>>(name: S, hook: ProcHook) -> Result<(), HookFailure> {
@@ -150,6 +164,10 @@ pub fn hook<S: Into<String>>(name: S, hook: ProcHook) -> Result<(), HookFailure>
 		Some(p) => hook_by_id(p.id, hook),
 		None => Err(HookFailure::ProcNotFound),
 	}
+}
+
+pub fn install_interceptor(func: CallProcByIdInterceptor) {
+	INTERCEPTOR.with(|h| h.replace(Option::Some(func)));
 }
 
 impl Proc {
@@ -180,6 +198,24 @@ extern "C" fn call_proc_by_id_hook(
 	_unknown2: u32,
 	_unknown3: u32,
 ) -> u8 {
+	let result = INTERCEPTOR.with(|cell| {
+		cell.borrow().map_or(0, |interceptor| {
+			interceptor(
+				ret,
+				usr_raw,
+				_proc_type,
+				proc_id,
+				_unknown1,
+				src_raw,
+				args_ptr,
+				num_args,
+				_unknown2,
+				_unknown3
+			)
+		})
+	});
+	if result == 1 { return 1; }
+
 	match PROC_HOOKS.with(|h| match h.borrow().get(&proc_id) {
 		Some(hook) => {
 			let src;
