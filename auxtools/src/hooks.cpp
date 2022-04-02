@@ -7,7 +7,7 @@ using CallProcById_Ptr = Value(LINUX_REGPARM3 *)(Value, uint32_t, uint32_t, uint
 
 // The type of the hook defined in hooks.rs
 using CallProcById_Hook_Ptr = Value(*)(Value, uint32_t, uint32_t, uint32_t, Value, Value*, uint32_t, uint32_t, uint32_t);
-using CallProcById2_Hook_Ptr = Value*(*)(Value*, Value, uint32_t, uint32_t, uint32_t, Value, Value*, uint32_t, uint32_t, uint32_t);
+using CallProcById2_Hook_Ptr = Value(*)(Value, uint32_t, uint32_t, uint32_t, Value, Value*, uint32_t, uint32_t, uint32_t);
 
 extern "C" {
 	// The ptr everybody else sees
@@ -75,8 +75,7 @@ extern "C" Value LINUX_REGPARM3 call_proc_by_id_hook_trampoline(
 	//return call_proc_by_id_hook(usr, proc_type, proc_id, unk_0, src, args, args_count, unk_1, unk_2);
 }
 
-extern "C" Value* call_proc_by_id_hook_trampoline2(
-	Value* out,
+extern "C" Value call_proc_by_id_hook_trampoline2(
 	Value usr,
 	uint32_t proc_type,
 	uint32_t proc_id,
@@ -87,11 +86,12 @@ extern "C" Value* call_proc_by_id_hook_trampoline2(
 	uint32_t unk_1,
 	uint32_t unk_2
 ) {
-
-	if (call_proc_by_id_hook(out, usr, proc_type, proc_id, unk_0, src, args, args_count, unk_1, unk_2)) {
-		return out;
+    Value ret;
+	if (call_proc_by_id_hook(&ret, usr, proc_type, proc_id, unk_0, src, args, args_count, unk_1, unk_2)) {
+        clean(ret);
+		return ret;
 	} else {
-		return call_proc_by_id_original2(out, usr, proc_type, proc_id, unk_0, src, args, args_count, unk_1, unk_2);
+		return call_proc_by_id_original2(usr, proc_type, proc_id, unk_0, src, args, args_count, unk_1, unk_2);
 	}
 	//return call_proc_by_id_hook(usr, proc_type, proc_id, unk_0, src, args, args_count, unk_1, unk_2);
 }
