@@ -197,7 +197,6 @@ byond_ffi_fn! { auxtools_init(_input) {
 
 		with_scanner_by_call! { byondcore,
 			call_proc_by_id,
-			call_proc_by_id2,
 			get_proc_array_entry,
 			inc_ref_count,
 			get_misc_by_id,
@@ -217,6 +216,12 @@ byond_ffi_fn! { auxtools_init(_input) {
 
 		#[cfg(unix)]
 		{
+			with_scanner_by_call! { byondcore,
+				call_proc_by_id2
+			}
+			unsafe {
+				raw_types::funcs::call_proc_by_id2_byond = call_proc_by_id2;
+		    }
 			if version::get().1 >= 1543 {
 				with_scanner_by_call! { byondcore,
 					dec_ref_count_514
@@ -323,7 +328,6 @@ byond_ffi_fn! { auxtools_init(_input) {
 			raw_types::funcs::SUSPENDED_PROCS = *(suspended_procs.add(1) as *mut *mut raw_types::procs::SuspendedProcs);
 			raw_types::funcs::SUSPENDED_PROCS_BUFFER = *(suspended_procs_buffer.add(2) as *mut *mut raw_types::procs::SuspendedProcsBuffer);
 			raw_types::funcs::call_proc_by_id_byond = call_proc_by_id;
-			raw_types::funcs::call_proc_by_id2_byond = call_proc_by_id2;
 			raw_types::funcs::call_datum_proc_by_name_byond = call_datum_proc_by_name;
 			raw_types::funcs::get_proc_array_entry_byond = get_proc_array_entry;
 			raw_types::funcs::get_string_id_byond = get_string_id;

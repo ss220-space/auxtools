@@ -91,7 +91,13 @@ extern "C" uint8_t call_proc_by_id(
 
 	BYOND_TRY
 	{
+
+		#ifdef _WIN32
+		*out = call_proc_by_id_byond(usr, proc_type, proc_id, unk_0, src, args, args_count, unk_1, unk_2);
+		#else
 		*out = call_proc_by_id2_byond(usr, proc_type, proc_id, unk_0, src, args, args_count, unk_1, unk_2);
+		#endif
+
 		return 1;
 	}
 	BYOND_CATCH
